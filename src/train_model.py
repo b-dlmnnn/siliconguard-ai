@@ -117,7 +117,7 @@ def build_and_train():
 
     # 3. Esik Secimi SADECE Validation Setinde Yapilir (Test Setine Bakilmaz)
     val_probs = best_pipe.predict_proba(X_val)[:, 1]
-    thresh_grid = np.linspace(0.05, 0.95, 91)
+    thresh_grid = np.linspace(0.25, 0.85, 61)
     best_val_t = 0.25
     best_val_net = -1e18
     for t in thresh_grid:
