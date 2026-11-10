@@ -9,9 +9,8 @@ from src.telemetry import generate_chip_telemetry, plot_telemetry_dashboard
 
 st.set_page_config(page_title="SiliconGuard AI | Semiconductor Yield & Telemetry", page_icon="🔬", layout="wide")
 
-@st.cache_resource
 def load_artifact():
-    return joblib.load("models/siliconguard_rf.pkl")
+    return joblib.load("models/siliconguard_v3.pkl")
 
 artifact = load_artifact()
 pipeline = artifact["pipeline"]
