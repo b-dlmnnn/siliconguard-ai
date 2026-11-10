@@ -31,14 +31,14 @@ threshold = st.sidebar.slider(
     "Alert Probability Threshold (%)",
     min_value=5,
     max_value=95,
-    value=50,
+    value=16,
     step=1,
     help="Wafers with predicted defect probability above this threshold are flagged for inspection.",
 ) / 100.0
 
 st.sidebar.markdown("### Economic Assumptions (Simulated)")
 cost_tp = st.sidebar.number_input("Savings per Caught Defect ($)", min_value=500, max_value=20000, value=3500, step=100)
-cost_fp = st.sidebar.number_input("Inspection Cost per False Alarm ($)", min_value=50, max_value=5000, value=400, step=50)
+cost_fp = st.sidebar.number_input("Inspection Cost per False Alarm ($)", min_value=16, max_value=5000, value=400, step=50)
 cost_fn = st.sidebar.number_input("Packaging Loss per Missed Defect ($)", min_value=500, max_value=25000, value=4500, step=100)
 
 st.sidebar.markdown("---")
@@ -238,7 +238,7 @@ with tab3:
 
     with col_diag:
         selected_wafer = st.selectbox("Select Wafer for Root-Cause Sensor Z-Score Inspection", results_df["Wafer_ID"])
-        w_idx = int(selected_wafer.split("-")) - 1000
+        w_idx = int(selected_wafer.replace("WAF-","")) - 1000
         row_vals = X_batch.iloc[w_idx]
 
         batch_means = X_batch.mean()
