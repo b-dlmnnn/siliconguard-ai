@@ -238,9 +238,34 @@ with tab3:
 
     with col_diag:
         selected_wafer = st.selectbox("Select Wafer for Root-Cause Sensor Z-Score Inspection", results_df["Wafer_ID"])
-        w_idx = int(selected_wafer.split("-")[1]) - 1000
+        w_idx = int(selected_wafer.split("-")) - 1000
         row_vals = X_batch.iloc[w_idx]
 
         batch_means = X_batch.mean()
         batch_stds = X_batch.std().replace(0, np.nan)
         z_scores = ((row_vals - batch_means) / batch_stds).dropna()
+        top_z = z_scores.reindex(z_scores.abs().sort_values(ascending=False).head(10).index)
+
+        z_df = pd.DataFrame({"Sensor": top_z.index, "Z_Score": top_z.values}).sort_values("Z_Score")
+        fig_z = px.bar(
+            z_df, x="Z_Score", y="Sensor", orientation="h",
+            color="Z_Score", color_continuous_scale="RdBu_r",
+            title=f"Top 10 Sensor Deviations (Z-Score) — {selected_wafer}",
+        )
+        fig_z.update_layout(height=360, margin=dict(l=110, r=20, t=40, b=20), coloraxis_showscale=False)
+        st.plotly_chart(fig_z, use_container_width=True)
+
+# ==================== TAB 4 ====================
+with tab4:
+    st.subheader("Simulated Chip-Level Thermal & Power Telemetry")
+    st.caption("Synthetic physics-inspired telemetry module demonstrating transient thermal spike detection.")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        duration = st.slider("Simulation Duration (sec)", 30, 300, 120, step=10)
+        inject = st.checkbox("Inject Thermal Runaway / Micro-Defect Spike", value=True)
+        df_tel = generate_chip_telemetry(duration_sec=duration, inject_anomaly=inject)
+        st.metric("Peak Simulated Temp", f"{df_tel['Temperature_C'].max():.1f} °C")
+        st.metric("Peak Simulated Power", f"{df_tel['Power_W'].max():.1f} W")
+    with c2:
+        st.plotly_chart(plot_telemetry_dashboard(df_tel), use_container_width=True)
