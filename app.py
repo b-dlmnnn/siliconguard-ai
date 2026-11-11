@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.metrics import confusion_matrix, precision_score, recall_score
 from src.telemetry import generate_chip_telemetry, plot_telemetry_dashboard
+from src.diagnostics import calculate_psi, compute_calibration_data
 
 st.set_page_config(page_title="SiliconGuard AI | Semiconductor Yield & Telemetry", page_icon="🔬", layout="wide")
 
@@ -31,7 +32,14 @@ st.title("🔬 SiliconGuard AI — Semiconductor Yield & Telemetry Prototype")
 st.caption("Applied ML wafer defect screening (chronological train/val/test split) with explicit cost-threshold analysis and simulated thermal telemetry.")
 
 uploaded_file = st.file_uploader("Upload SECOM-formatted CSV (or evaluate on the 314-wafer chronological test set)", type=["csv"])
-df_raw = pd.read_csv(uploaded_file) if uploaded_file is not None else pd.read_csv("data/sample_wafer_batch.csv")
+if uploaded_file is not None:
+    df_raw = pd.read_csv(uploaded_file)
+    missing_cols = set(feature_names) - set(df_raw.columns)
+    if missing_cols:
+        st.error(f"Uploaded CSV is missing {len(missing_cols)} required SECOM sensor columns (e.g., {list(missing_cols)[:5]}). Please use the sample CSV template.")
+        st.stop()
+else:
+    df_raw = pd.read_csv("data/sample_wafer_batch.csv")
 
 has_ground_truth = "Ground_Truth_Label" in df_raw.columns
 X_batch = df_raw[feature_names].copy()
@@ -99,6 +107,24 @@ with tab2:
     fig_imp = px.bar(top_features.sort_values("Importance_Score", ascending=True), x="Importance_Score", y="Sensor_Feature", orientation="h", color="Importance_Score", color_continuous_scale="Tealgrn")
     fig_imp.update_layout(height=360, margin=dict(l=110, r=30, t=20, b=40), coloraxis_showscale=False)
     st.plotly_chart(fig_imp, use_container_width=True)
+
+    if has_ground_truth:
+        st.markdown("### Probability Calibration Curve & Sensor Drift (PSI)")
+        col_cal, col_psi = st.columns(2)
+        with col_cal:
+            cal_df = compute_calibration_data(df_raw["Ground_Truth_Label"].values, probs, n_bins=5)
+            fig_cal = go.Figure()
+            fig_cal.add_trace(go.Scatter(x=cal_df["Mean_Predicted_Prob"], y=cal_df["Observed_Defect_Rate"], mode="lines+markers", name="Model Calibration", line=dict(color="#00CC96", width=3)))
+            fig_cal.add_trace(go.Scatter(x=list((0, 100)), y=list((0, 100)), mode="lines", name="Perfect Calibration", line=dict(dash="dash", color="#888888")))
+            fig_cal.update_layout(title="Reliability / Calibration Curve (%)", xaxis_title="Mean Predicted Risk (%)", yaxis_title="Observed Defect Rate (%)", height=330, margin=dict(l=30, r=20, t=40, b=30))
+            st.plotly_chart(fig_cal, use_container_width=True)
+        with col_psi:
+            ref_df = pd.read_csv("data/sample_wafer_batch.csv")
+            top_s = top_features["Sensor_Feature"].iloc
+            psi_val = calculate_psi(ref_df[top_s].values, X_batch[top_s].values)
+            drift_status = "Stable (<0.10)" if psi_val < 0.10 else ("Moderate Shift (0.10–0.25)" if psi_val < 0.25 else "Significant Drift (>0.25)")
+            st.metric(f"Top Sensor PSI Drift ({top_s})", f"{psi_val:.4f}", delta=drift_status)
+            st.info("**PSI Guide:** `< 0.10` = No significant distribution shift | `0.10 – 0.25` = Moderate drift | `> 0.25` = Retraining recommended.")
 
 with tab3:
     st.subheader("Simulated Spatial Wafer Risk Map & Sensor Deviation (Z-Score) Inspection")
