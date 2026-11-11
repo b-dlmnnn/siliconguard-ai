@@ -120,7 +120,7 @@ with tab2:
             st.plotly_chart(fig_cal, use_container_width=True)
         with col_psi:
             ref_df = pd.read_csv("data/sample_wafer_batch.csv")
-            top_s = top_features["Sensor_Feature"].values.take(0)
+            top_s = next(iter(top_features["Sensor_Feature"]))
             psi_val = calculate_psi(ref_df[top_s].values, X_batch[top_s].values)
             drift_status = "Stable (<0.10)" if psi_val < 0.10 else ("Moderate Shift (0.10–0.25)" if psi_val < 0.25 else "Significant Drift (>0.25)")
             st.metric(f"Top Sensor PSI Drift ({top_s})", f"{psi_val:.4f}", delta=drift_status)
