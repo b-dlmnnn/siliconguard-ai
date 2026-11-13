@@ -5,3 +5,6 @@ plotly
 streamlit
 joblib
 ucimlrepo
+shap
+matplotlib
+torch

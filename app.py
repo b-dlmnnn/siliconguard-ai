@@ -158,3 +158,138 @@ with tab4:
         st.metric("Peak Simulated Power", f"{df_tel['Power_W'].max():.1f} W")
     with c2:
         st.plotly_chart(plot_telemetry_dashboard(df_tel), use_container_width=True)
+# ==========================================
+# NEW MODULE: SHAP ROOT CAUSE ANALYSIS (XAI)
+# ==========================================
+from src.diagnostics import compute_shap_explanation
+
+st.markdown("---")
+st.subheader("🔍 Explainable AI (XAI) – SHAP Sensor Root Cause Analysis")
+st.caption("Game-theoretic feature attribution showing which sensors drive defect predictions.")
+
+if st.button("Run SHAP Root Cause Analysis on Current Batch"):
+    with st.spinner("Calculating Shapley values across active sensors..."):
+        try:
+            shap_values, importance_df = compute_shap_explanation(
+                pipeline=pipeline,
+                X_sample=X_batch,
+                feature_names=feature_names
+            )
+            
+            col_shap1, col_shap2 = st.columns([1.2, 1])
+            
+            with col_shap1:
+                fig_shap = px.bar(
+                    importance_df.sort_values(by="Mean_SHAP_Impact", ascending=True),
+                    x="Mean_SHAP_Impact",
+                    y="Sensor",
+                    orientation="h",
+                    title="Top 10 Most Influential Sensors (Mean |SHAP Value|)",
+                    labels={"Mean_SHAP_Impact": "Average Impact on Defect Risk", "Sensor": "Sensor ID"}
+                )
+                st.plotly_chart(fig_shap, use_container_width=True)
+                
+                with col_shap2:
+                 st.markdown("**Key Diagnostic Insights:**")
+                top_sensor = importance_df.iloc[0]["Sensor"]
+                top_impact = importance_df.iloc[0]["Mean_SHAP_Impact"]
+
+                st.info(
+                    f"Across the evaluated batch, **{top_sensor}** is the primary driver of defect risk "
+                    f"with an average SHAP attribution of **{top_impact:.4f}**."
+                )
+                st.dataframe(importance_df, use_container_width=True, hide_index=True)
+                
+        except Exception as e:
+            st.error(f"SHAP computation error: {e}")
+# ==========================================
+# NEW MODULE: DATA & CONCEPT DRIFT MONITOR
+# ==========================================
+from src.diagnostics import monitor_sensor_drift
+
+st.markdown("---")
+st.subheader("📡 Automated Sensor & Data Drift Monitor (PSI)")
+st.caption("Detects sensor degradation and distribution shifts before model accuracy silently drops.")
+
+drift_injection = st.slider(
+    "Simulate Sensor Calibration Drift (Standard Deviation Shift)",
+    min_value=0.0, max_value=2.0, value=0.0, step=0.25,
+    help="Simulates real-world sensor aging or environmental shift on critical sensors."
+)
+
+# Referans olarak mevcut batch'i al, simülasyon için kopyasına kayma (drift) uygula
+ref_df = X_batch.copy()
+curr_df = X_batch.copy()
+
+# En kritik ilk 5 sensöre (SHAP veya top_features) simüle edilen kaymayı ekle
+monitored_sensors = [c for c in X_batch.columns if c not in ["Wafer_ID", "Target", "Label"]][:5]
+
+if drift_injection > 0:
+    np.random.seed(42)
+    for s in monitored_sensors:
+        std_val = ref_df[s].std()
+        curr_df[s] = curr_df[s] + (drift_injection * std_val)
+
+drift_summary_df = monitor_sensor_drift(ref_df, curr_df, monitored_sensors)
+
+col_d1, col_d2 = st.columns([1.2, 1])
+
+with col_d1:
+    st.dataframe(drift_summary_df, use_container_width=True, hide_index=True)
+
+with col_d2:
+    max_psi = drift_summary_df["PSI_Score"].max()
+    if max_psi > 0.25:
+        st.error(f"🚨 **CRITICAL DRIFT DETECTED (Max PSI: {max_psi})**\n\nSensor distribution shifted significantly. Model retraining or recalibration is triggered.")
+    elif max_psi >= 0.10:
+        st.warning(f"⚠️ **MODERATE DRIFT (Max PSI: {max_psi})**\n\nMinor sensor drift observed. Continue close monitoring.")
+    else:
+        st.success(f"✅ **SYSTEM HEALTHY (Max PSI: {max_psi})**\n\nAll monitored sensors match the baseline training distribution.")
+# ==========================================
+# NEW MODULE: DEEP LEARNING LSTM SEQUENCE MONITOR
+# ==========================================
+from src.lstm_model import train_and_predict_lstm
+
+st.markdown("---")
+st.subheader("🧠 Deep Learning Temporal Sequence Monitor (PyTorch LSTM)")
+st.caption("Captures sequential sensor memory across consecutive wafer steps using a 3D Recurrent Neural Network.")
+
+col_lstm_ctrl1, col_lstm_ctrl2 = st.columns(2)
+with col_lstm_ctrl1:
+    seq_window = st.slider("Temporal Window Length (Consecutive Steps)", min_value=3, max_value=10, value=5)
+with col_lstm_ctrl2:
+    train_epochs = st.slider("Training Epochs", min_value=10, max_value=50, value=25, step=5)
+
+if st.button("Train & Run LSTM Temporal Sequence Model"):
+    with st.spinner("Training PyTorch LSTM neural network on 3D sensor windows..."):
+        try:
+            numeric_X = X_batch.select_dtypes(include=[np.number])
+            loss_history, lstm_probs = train_and_predict_lstm(
+                X_df=numeric_X,
+                seq_len=seq_window,
+                epochs=train_epochs
+            )
+            
+            c_l1, c_l2 = st.columns(2)
+            with c_l1:
+                loss_df = pd.DataFrame({"Epoch": range(1, len(loss_history) + 1), "BCE_Loss": loss_history})
+                fig_loss = px.line(
+                    loss_df, x="Epoch", y="BCE_Loss",
+                    title="LSTM Training Convergence (Binary Cross-Entropy Loss)",
+                    markers=True
+                )
+                st.plotly_chart(fig_loss, use_container_width=True)
+                
+            with c_l2:
+                seq_df = pd.DataFrame({
+                    "Window_Step": range(1, len(lstm_probs) + 1),
+                    "Temporal_Risk_Score": lstm_probs
+                })
+                fig_seq = px.area(
+                    seq_df, x="Window_Step", y="Temporal_Risk_Score",
+                    title="Sequential Defect Risk Trajectory Across Windows"
+                )
+                st.plotly_chart(fig_seq, use_container_width=True)
+                
+        except Exception as e:
+            st.error(f"LSTM training error: {e}")
