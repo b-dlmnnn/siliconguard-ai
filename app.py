@@ -70,7 +70,7 @@ with tab1:
         inc_gain = net_model - net_baseline
         c3.metric("True Defects Caught (TP / Total)", f"{tp} / {total_defects}")
         c4.metric("Net Economic Impact (Model)", f"${net_model:,.0f}", delta=f"+${inc_gain:,.0f} vs. Baseline (${net_baseline:,.0f})")
-        st.info(f"**Formula:** `Net Impact = (TP × ${cost_tp:,}) − (FP × ${cost_fp:,}) − (FN × ${cost_fn:,})` | **Do-Nothing Baseline (Predict All Pass): USD -76,500 | Incremental Gain: USD -1,200
+        st.info(f"**Formula:** `Net Impact = (TP × USD {cost_tp:,}) − (FP × USD {cost_fp:,}) − (FN × USD {cost_fn:,})` | **Do-Nothing Baseline (Predict All Pass):** **USD {net_baseline:,.0f}** | **Incremental Gain:** **+USD {inc_gain:,.0f}**")
         thresh_grid = np.linspace(0.01, 0.95, 95)
         net_curve = [(confusion_matrix(y_true, (probs >= t).astype(int), labels=list((0, 1))).ravel()[3] * cost_tp) - (confusion_matrix(y_true, (probs >= t).astype(int), labels=list((0, 1))).ravel()[1] * cost_fp) - (confusion_matrix(y_true, (probs >= t).astype(int), labels=list((0, 1))).ravel()[2] * cost_fn) for t in thresh_grid]
         fig_cost = go.Figure()
