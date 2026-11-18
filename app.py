@@ -22,11 +22,11 @@ val_t_pct = int(round(metrics.get("val_selected_threshold", 0.07) * 100))
 
 st.sidebar.title("Control Panel")
 threshold = st.sidebar.slider("Alert Probability Threshold (%)", 1, 95, val_t_pct, 1) / 100.0
-st.sidebar.markdown("### Economic Assumptions (Simulated)")
+st.sidebar.markdown("### Cost Parameters")
 cost_tp = st.sidebar.number_input("Savings per Caught Defect (\$)", 500, 20000, 3500, 100)
 cost_fp = st.sidebar.number_input("Inspection Cost per False Alarm (\$)", 50, 5000, 400, 50)
 cost_fn = st.sidebar.number_input("Packaging Loss per Missed Defect (\$)", 500, 25000, 4500, 100)
-st.sidebar.info("**Methodology:** UCI SECOM (1,567 wafers, 590 sensors). Chronological Split (65% Train / 15% Val / 20% Test). Designed to prevent preprocessing leakage; threshold selected strictly on validation split.")
+st.sidebar.info("**Dataset:** UCI SECOM (1,567 wafers, 590 sensors). Split chronologically (65% Train / 15% Val / 20% Test) to avoid data leakage, with decision thresholds tuned on the validation set.")
 
 st.title("🔬 SiliconGuard AI — Semiconductor Yield & Telemetry Prototype")
 st.caption("Applied ML wafer defect screening (chronological train/val/test split) with explicit cost-threshold analysis and simulated thermal telemetry.")
